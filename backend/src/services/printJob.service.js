@@ -46,10 +46,23 @@ const getMyPrintJobs = async (userId) => {
 };
 
 const updatePrintJobStatus = async (jobId, userId, status) => {
-  const allowedStatuses = ["queued", "printing", "completed", "failed"];
+  const allowedStatuses = [
+    "queued",
+    "printing",
+    "completed",
+    "failed",
+  ];
 
   if (!allowedStatuses.includes(status)) {
     throw new Error("Invalid print job status");
+  }
+
+  const updateData = {
+    status,
+  };
+
+  if (status === "completed") {
+    updateData.completedAt = new Date();
   }
 
   const printJob = await PrintJob.findOneAndUpdate(
@@ -57,12 +70,10 @@ const updatePrintJobStatus = async (jobId, userId, status) => {
       _id: jobId,
       user: userId,
     },
-    {
-      status,
-    },
+    updateData,
     {
       new: true,
-    },
+    }
   );
 
   if (!printJob) {
@@ -72,9 +83,18 @@ const updatePrintJobStatus = async (jobId, userId, status) => {
   return printJob;
 };
 
-const getQueuedPrintJobs = async (printerId) => {
+const getQueuedPrintJobs = async (printerId, userId) => {
+  const printer = await Printer.findOne({
+    printerId,
+    owner: userId,
+  });
+
+  if (!printer) {
+    throw new Error("Printer not found");
+  }
+
   const printJobs = await PrintJob.find({
-    printer: printerId,
+    printer: printer._id,
     status: "queued",
   }).sort({
     createdAt: 1,

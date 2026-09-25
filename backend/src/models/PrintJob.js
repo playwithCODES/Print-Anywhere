@@ -38,12 +38,16 @@ const printJobSchema = new mongoose.Schema(
     completedAt: {
       type: Date,
       default: null,
-      index: true,
     },
   },
   {
     timestamps: true,
   }
+);
+
+printJobSchema.index(
+  { completedAt: 1 },
+  { expireAfterSeconds: 900 }
 );
 
 export default mongoose.model("PrintJob", printJobSchema);
