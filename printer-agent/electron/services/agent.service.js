@@ -15,9 +15,7 @@ let agentState = {
   stopPrintWorkers: [],
 };
 
-const getPrintersFromResponse = (
-  response
-) => {
+const getPrintersFromResponse = (response) => {
   const printers =
     response?.data?.printers ||
     response?.printers ||
@@ -28,13 +26,28 @@ const getPrintersFromResponse = (
     : [];
 };
 
+const updatePrinterState = (updatedPrinter) => {
+  if (!updatedPrinter?.printerId) {
+    return;
+  }
+
+  agentState.printers =
+    agentState.printers.map((printer) =>
+      printer?.printerId === updatedPrinter.printerId
+        ? {
+            ...printer,
+            ...updatedPrinter,
+          }
+        : printer
+    );
+};
+
 const stopWorkers = () => {
   if (agentState.stopHeartbeat) {
     agentState.stopHeartbeat();
   }
 
-  for (const stopWorker of
-    agentState.stopPrintWorkers) {
+  for (const stopWorker of agentState.stopPrintWorkers) {
     if (stopWorker) {
       stopWorker();
     }
@@ -50,9 +63,7 @@ const startWorkers = async () => {
   const printers = agentState.printers;
 
   const printerIds = printers
-    .map(
-      (printer) => printer?.printerId
-    )
+    .map((printer) => printer?.printerId)
     .filter(Boolean);
 
   if (printerIds.length === 0) {
@@ -62,7 +73,10 @@ const startWorkers = async () => {
   agentState.stopHeartbeat =
     heartbeatWorker.startHeartbeatWorker(
       agentState.token,
-      printerIds
+      printerIds,
+      (updatedPrinter) => {
+        updatePrinterState(updatedPrinter);
+      }
     );
 
   for (const printer of printers) {
@@ -73,10 +87,8 @@ const startWorkers = async () => {
     const stopPrintWorker =
       await printWorker.startPrintWorker({
         token: agentState.token,
-        printerId:
-          printer.printerId,
-        printerName:
-          printer.name,
+        printerId: printer.printerId,
+        printerName: printer.name,
       });
 
     agentState.stopPrintWorkers.push(
@@ -110,14 +122,6 @@ const startAgentWithToken = async (
   agentState.token = token;
   agentState.user = user;
 
-  /*
-   * IMPORTANT:
-   *
-   * Login only loads printers that are
-   * already registered to this user.
-   *
-   * It DOES NOT register local printers.
-   */
   await loadRegisteredPrinters();
 
   agentState.running = true;

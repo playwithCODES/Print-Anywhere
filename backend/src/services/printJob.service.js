@@ -3,18 +3,17 @@ import Printer from "../models/Printer.js";
 
 const createPrintJob = async ({
   userId,
-  printerId,
   fileName,
   fileUrl,
   copies,
 }) => {
   const printer = await Printer.findOne({
-    printerId,
     owner: userId,
+    isActive: true,
   });
 
   if (!printer) {
-    throw new Error("Printer not found");
+    throw new Error("No active printer found");
   }
 
   if (printer.status !== "online") {
@@ -37,7 +36,7 @@ const getMyPrintJobs = async (userId) => {
   const printJobs = await PrintJob.find({
     user: userId,
   })
-    .populate("printer", "name printerId status")
+    .populate("printer", "name printerId status isActive")
     .sort({
       createdAt: -1,
     });
@@ -45,7 +44,11 @@ const getMyPrintJobs = async (userId) => {
   return printJobs;
 };
 
-const updatePrintJobStatus = async (jobId, userId, status) => {
+const updatePrintJobStatus = async (
+  jobId,
+  userId,
+  status
+) => {
   const allowedStatuses = [
     "queued",
     "printing",
@@ -65,16 +68,17 @@ const updatePrintJobStatus = async (jobId, userId, status) => {
     updateData.completedAt = new Date();
   }
 
-  const printJob = await PrintJob.findOneAndUpdate(
-    {
-      _id: jobId,
-      user: userId,
-    },
-    updateData,
-    {
-      new: true,
-    }
-  );
+  const printJob =
+    await PrintJob.findOneAndUpdate(
+      {
+        _id: jobId,
+        user: userId,
+      },
+      updateData,
+      {
+        new: true,
+      }
+    );
 
   if (!printJob) {
     throw new Error("Print job not found");
@@ -83,7 +87,10 @@ const updatePrintJobStatus = async (jobId, userId, status) => {
   return printJob;
 };
 
-const getQueuedPrintJobs = async (printerId, userId) => {
+const getQueuedPrintJobs = async (
+  printerId,
+  userId
+) => {
   const printer = await Printer.findOne({
     printerId,
     owner: userId,

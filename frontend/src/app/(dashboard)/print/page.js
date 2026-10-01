@@ -1,15 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
 import printerService from "@/services/printer.service.js";
 import uploadService from "@/services/upload.service.js";
 import printJobService from "@/services/printjob.service.js";
 
 export default function PrintPage() {
   const [printers, setPrinters] = useState([]);
-  const [printerId, setPrinterId] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
+  const [copies, setCopies] = useState("1");
 
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -20,20 +19,24 @@ export default function PrintPage() {
     const loadPrinters = async () => {
       try {
         setLoading(true);
+        setError("");
 
-        const response =
-          await printerService.getMyPrinters();
+        const response = await printerService.getMyPrinters();
 
-        setPrinters(response.printers || []);
+        const userPrinters = Array.isArray(response?.printers)
+          ? response.printers
+          : [];
+
+        setPrinters(userPrinters);
       } catch (error) {
         console.error(
           "Failed to load printers:",
-          error
+          error.response?.data || error.message
         );
 
         setError(
           error.response?.data?.message ||
-            "Failed to load printers."
+            "Failed to load printer information."
         );
       } finally {
         setLoading(false);
@@ -42,6 +45,10 @@ export default function PrintPage() {
 
     loadPrinters();
   }, []);
+
+  const activePrinter = printers.find(
+    (printer) => printer?.isActive === true
+  );
 
   const handleFileChange = (event) => {
     const file = event.target.files?.[0];
@@ -60,7 +67,6 @@ export default function PrintPage() {
     ) {
       setSelectedFile(null);
       event.target.value = "";
-
       setError("Only PDF files are allowed.");
       return;
     }
@@ -68,14 +74,24 @@ export default function PrintPage() {
     setSelectedFile(file);
   };
 
+  const handleCopiesChange = (event) => {
+    setCopies(event.target.value);
+    setError("");
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    setMessage("");
     setError("");
+    setMessage("");
 
-    if (!printerId) {
-      setError("Please select a printer.");
+    if (!activePrinter) {
+      setError("No active printer is available.");
+      return;
+    }
+
+    if (activePrinter.status !== "online") {
+      setError("The active printer is offline.");
       return;
     }
 
@@ -84,42 +100,37 @@ export default function PrintPage() {
       return;
     }
 
+    const copyCount = Number(copies);
+
+    if (
+      !Number.isInteger(copyCount) ||
+      copyCount < 1
+    ) {
+      setError("Copies must be at least 1.");
+      return;
+    }
+
     try {
       setSending(true);
-
-      // ==========================================
-      // 1. UPLOAD PDF
-      // ==========================================
-
       setMessage("Uploading PDF...");
 
       const uploadResponse =
-        await uploadService.uploadDocument(
-          selectedFile
-        );
+        await uploadService.uploadDocument(selectedFile);
 
-      const uploadedFile =
-        uploadResponse.data;
-
-      // ==========================================
-      // 2. CREATE PRINT JOB
-      // ==========================================
+      const uploadedFile = uploadResponse.data;
 
       setMessage("Creating print job...");
 
       await printJobService.createPrintJob({
-        printerId,
         fileName: uploadedFile.fileName,
         fileUrl: uploadedFile.fileUrl,
-        copies: 1,
+        copies: copyCount,
       });
 
-      setMessage(
-        "PDF sent to printer successfully."
-      );
+      setMessage("PDF sent to printer successfully.");
 
       setSelectedFile(null);
-      setPrinterId("");
+      setCopies("1");
 
       const fileInput =
         document.getElementById("document");
@@ -129,14 +140,13 @@ export default function PrintPage() {
       }
     } catch (error) {
       console.error(
-        "Failed to send PDF:",
-        error
+        "Failed to create print job:",
+        error.response?.data || error.message
       );
-
-      setMessage("");
 
       setError(
         error.response?.data?.message ||
+          error.message ||
           "Failed to send PDF to printer."
       );
     } finally {
@@ -145,395 +155,126 @@ export default function PrintPage() {
   };
 
   return (
-    <div
-      className="
-        min-h-[calc(100vh-5rem)]
-        bg-slate-100
-        px-4
-        py-6
-        text-slate-900
-        transition-colors
-        duration-300
+    <main className="min-h-screen bg-slate-100 p-6">
+      <div className="mx-auto w-full max-w-2xl">
+        <div className="rounded-2xl bg-white p-6 shadow-xl">
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-slate-900">
+              Print Document
+            </h1>
 
-        sm:px-6
-        sm:py-8
+            <p className="mt-1 text-sm text-slate-500">
+              Send a PDF to your active printer.
+            </p>
+          </div>
 
-        lg:min-h-[calc(100vh-6rem)]
-        lg:px-8
-        lg:py-10
+          {loading ? (
+            <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
+              Loading printer...
+            </div>
+          ) : activePrinter ? (
+            <div
+              className={`mb-6 rounded-xl border p-4 ${
+                activePrinter.status === "online"
+                  ? "border-green-200 bg-green-50"
+                  : "border-red-200 bg-red-50"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-medium text-slate-500">
+                    Active Printer
+                  </p>
 
-        dark:bg-slate-950
-        dark:text-white
-      "
-    >
-      <div className="mx-auto w-full max-w-3xl">
+                  <p className="mt-1 font-semibold text-slate-900">
+                    {activePrinter.name}
+                  </p>
+                </div>
 
-        {/* PAGE HEADER */}
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                    activePrinter.status === "online"
+                      ? "bg-green-100 text-green-700"
+                      : "bg-red-100 text-red-700"
+                  }`}
+                >
+                  {activePrinter.status === "online"
+                    ? "Online"
+                    : "Offline"}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="mb-6 rounded-xl border border-yellow-200 bg-yellow-50 p-4">
+              <p className="font-semibold text-yellow-800">
+                No active printer
+              </p>
 
-        <div className="mb-6 sm:mb-8">
-          <h1
-            className="
-              text-2xl
-              font-bold
-              text-slate-900
-              dark:text-white
+              <p className="mt-1 text-sm text-yellow-700">
+                Please register a printer through the Printer Agent.
+              </p>
+            </div>
+          )}
 
-              sm:text-3xl
-            "
-          >
-            Print Document
-          </h1>
+          {error && (
+            <div className="mb-5 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+              {error}
+            </div>
+          )}
 
-          <p
-            className="
-              mt-2
-              text-sm
-              text-slate-600
-              dark:text-slate-400
+          {message && (
+            <div className="mb-5 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-600">
+              {message}
+            </div>
+          )}
 
-              sm:text-base
-            "
-          >
-            Send a PDF document to one of your
-            registered printers.
-          </p>
-        </div>
-
-        {/* FORM CARD */}
-
-        <div
-          className="
-            rounded-2xl
-            border
-            border-slate-200
-            bg-white
-            p-4
-            shadow-sm
-            transition-colors
-            duration-300
-
-            sm:p-6
-
-            lg:p-8
-
-            dark:border-slate-800
-            dark:bg-slate-900
-          "
-        >
           <form
             onSubmit={handleSubmit}
-            className="space-y-5 sm:space-y-6"
+            className="space-y-5"
           >
-
-            {/* PRINTER */}
-
-            <div>
-              <label
-                htmlFor="printer"
-                className="
-                  mb-2
-                  block
-                  text-sm
-                  font-semibold
-                  text-slate-800
-                  dark:text-slate-200
-                "
-              >
-                Select Printer
-              </label>
-
-              <select
-                id="printer"
-                value={printerId}
-                onChange={(event) =>
-                  setPrinterId(event.target.value)
-                }
-                disabled={loading || sending}
-                className="
-                  w-full
-                  rounded-xl
-                  border
-                  border-slate-300
-                  bg-white
-                  px-3
-                  py-3
-                  text-sm
-                  text-slate-900
-                  outline-none
-                  transition
-                  focus:border-blue-500
-                  focus:ring-2
-                  focus:ring-blue-500/20
-
-                  sm:px-4
-
-                  disabled:cursor-not-allowed
-                  disabled:opacity-60
-
-                  dark:border-slate-700
-                  dark:bg-slate-950
-                  dark:text-white
-                  dark:focus:border-blue-500
-                "
-              >
-                <option value="">
-                  {loading
-                    ? "Loading printers..."
-                    : "Select printer"}
-                </option>
-
-                {printers.map((printer) => (
-                  <option
-                    key={printer._id}
-                    value={printer.printerId}
-                  >
-                    {printer.name}
-                    {printer.status === "online"
-                      ? " — Online"
-                      : " — Offline"}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* DOCUMENT */}
-
             <div>
               <label
                 htmlFor="document"
-                className="
-                  mb-2
-                  block
-                  text-sm
-                  font-semibold
-                  text-slate-800
-                  dark:text-slate-200
-                "
+                className="mb-2 block text-sm font-medium text-slate-700"
               >
-                Select PDF
+                PDF Document
               </label>
 
-              <label
-                htmlFor="document"
-                className="
-                  flex
-                  min-h-48
-                  cursor-pointer
-                  flex-col
-                  items-center
-                  justify-center
-                  rounded-xl
-                  border-2
-                  border-dashed
-                  border-slate-300
-                  bg-slate-50
-                  px-4
-                  py-8
-                  text-center
-                  transition
-
-                  hover:border-blue-500
-                  hover:bg-blue-50
-
-                  sm:min-h-52
-                  sm:px-6
-                  sm:py-10
-
-                  dark:border-slate-700
-                  dark:bg-slate-950
-                  dark:hover:border-blue-500
-                  dark:hover:bg-blue-950/20
-                "
-              >
-                <div className="text-4xl">
-                  📄
-                </div>
-
-                <p
-                  className="
-                    mt-4
-                    text-sm
-                    font-semibold
-                    text-slate-800
-                    dark:text-slate-200
-
-                    sm:text-base
-                  "
-                >
-                  {selectedFile
-                    ? "Change PDF"
-                    : "Choose a PDF"}
-                </p>
-
-                <p
-                  className="
-                    mt-2
-                    text-xs
-                    text-slate-500
-                    dark:text-slate-400
-
-                    sm:text-sm
-                  "
-                >
-                  PDF files only
-                </p>
-
-                <input
-                  id="document"
-                  type="file"
-                  accept=".pdf,application/pdf"
-                  onChange={handleFileChange}
-                  disabled={sending}
-                  className="hidden"
-                />
-              </label>
-
-              {/* SELECTED FILE */}
+              <input
+                id="document"
+                type="file"
+                accept="application/pdf,.pdf"
+                onChange={handleFileChange}
+                disabled={sending || loading}
+                className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 file:mr-4 file:rounded-md file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:text-sm file:font-semibold"
+              />
 
               {selectedFile && (
-                <div
-                  className="
-                    mt-4
-                    flex
-                    flex-col
-                    gap-3
-                    rounded-xl
-                    border
-                    border-blue-200
-                    bg-blue-50
-                    px-4
-                    py-3
-
-                    sm:flex-row
-                    sm:items-center
-                    sm:justify-between
-
-                    dark:border-blue-900/50
-                    dark:bg-blue-950/30
-                  "
-                >
-                  <div
-                    className="
-                      flex
-                      min-w-0
-                      items-center
-                      gap-3
-                    "
-                  >
-                    <div className="shrink-0 text-2xl">
-                      📄
-                    </div>
-
-                    <div className="min-w-0">
-                      <p
-                        className="
-                          truncate
-                          text-sm
-                          font-medium
-                          text-slate-800
-                          dark:text-slate-200
-
-                          sm:text-base
-                        "
-                      >
-                        {selectedFile.name}
-                      </p>
-
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {(
-                          selectedFile.size /
-                          1024 /
-                          1024
-                        ).toFixed(2)}{" "}
-                        MB
-                      </p>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedFile(null);
-                      setError("");
-                      setMessage("");
-
-                      const fileInput =
-                        document.getElementById(
-                          "document"
-                        );
-
-                      if (fileInput) {
-                        fileInput.value = "";
-                      }
-                    }}
-                    className="
-                      self-end
-                      rounded-lg
-                      px-3
-                      py-2
-                      text-sm
-                      font-medium
-                      text-red-600
-                      transition
-                      hover:bg-red-100
-
-                      sm:self-auto
-
-                      dark:text-red-400
-                      dark:hover:bg-red-950/40
-                    "
-                  >
-                    Remove
-                  </button>
-                </div>
+                <p className="mt-2 text-sm text-slate-500">
+                  Selected: {selectedFile.name}
+                </p>
               )}
             </div>
 
-            {/* ERROR */}
-
-            {error && (
-              <div
-                className="
-                  rounded-xl
-                  border
-                  border-red-200
-                  bg-red-50
-                  px-4
-                  py-3
-                  text-sm
-                  text-red-700
-                  dark:border-red-900/50
-                  dark:bg-red-950/30
-                  dark:text-red-400
-                "
+            <div>
+              <label
+                htmlFor="copies"
+                className="mb-2 block text-sm font-medium text-slate-700"
               >
-                {error}
-              </div>
-            )}
+                Copies
+              </label>
 
-            {/* MESSAGE */}
-
-            {message && (
-              <div
-                className="
-                  rounded-xl
-                  border
-                  border-green-200
-                  bg-green-50
-                  px-4
-                  py-3
-                  text-sm
-                  text-green-700
-                  dark:border-green-900/50
-                  dark:bg-green-950/30
-                  dark:text-green-400
-                "
-              >
-                {message}
-              </div>
-            )}
-
-            {/* BUTTON */}
+              <input
+                id="copies"
+                type="number"
+                min="1"
+                step="1"
+                value={copies}
+                onChange={handleCopiesChange}
+                disabled={sending || loading}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-500"
+              />
+            </div>
 
             <button
               type="submit"
@@ -541,43 +282,18 @@ export default function PrintPage() {
                 sending ||
                 loading ||
                 !selectedFile ||
-                !printerId
+                !activePrinter ||
+                activePrinter.status !== "online"
               }
-              className="
-                w-full
-                rounded-xl
-                bg-blue-600
-                px-6
-                py-3.5
-                text-sm
-                font-semibold
-                text-white
-                transition
-
-                hover:bg-blue-700
-
-                focus:outline-none
-                focus:ring-2
-                focus:ring-blue-500
-                focus:ring-offset-2
-                focus:ring-offset-white
-
-                disabled:cursor-not-allowed
-                disabled:opacity-60
-
-                sm:text-base
-
-                dark:focus:ring-offset-slate-900
-              "
+              className="w-full rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {sending
-                ? "Processing..."
-                : "Send to Printer"}
+                ? "Sending..."
+                : "Print Document"}
             </button>
-
           </form>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

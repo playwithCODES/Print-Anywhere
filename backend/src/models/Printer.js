@@ -19,6 +19,11 @@ const printerSchema = new mongoose.Schema(
       required: true,
     },
 
+    isActive: {
+      type: Boolean,
+      default: false,
+    },
+
     status: {
       type: String,
       enum: ["online", "offline"],

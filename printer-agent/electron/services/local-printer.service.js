@@ -1,6 +1,4 @@
-import { BrowserWindow } from "electron";
-import { pathToFileURL } from "url";
-import { fileURLToPath } from "url";
+import printer from "pdf-to-printer";
 
 const getLocalPrinters = async () => {
   try {
@@ -63,6 +61,10 @@ const printFile = async (
     throw new Error("Printer name is required");
   }
 
+  if (!Number.isInteger(copies) || copies < 1) {
+    throw new Error("Copies must be at least 1");
+  }
+
   try {
     console.log(
       `Preparing PDF for printing: ${filePath}`
@@ -72,59 +74,23 @@ const printFile = async (
       `Target printer: ${printerName}`
     );
 
-    const printWindow = new BrowserWindow({
-      show: false,
+    console.log(
+      `Copies: ${copies}`
+    );
 
-      webPreferences: {
-        sandbox: false,
-      },
+    await printer.print(filePath, {
+      printer: printerName,
+      copies,
     });
 
-    try {
-      const fileUrl = pathToFileURL(filePath).href;
+    console.log(
+      `Print command sent: ${filePath} -> ${printerName}`
+    );
 
-      await printWindow.loadURL(fileUrl);
-
-      console.log("PDF loaded into Electron");
-
-      await new Promise((resolve, reject) => {
-        printWindow.webContents.print(
-          {
-            silent: true,
-            deviceName: printerName,
-            copies,
-            usePrinterDefaultPageSize: true,
-          },
-          (success, failureReason) => {
-            if (!success) {
-              reject(
-                new Error(
-                  failureReason ||
-                    "Electron printing failed"
-                )
-              );
-
-              return;
-            }
-
-            resolve();
-          }
-        );
-      });
-
-      console.log(
-        `Print command sent: ${filePath} -> ${printerName}`
-      );
-
-      return {
-        success: true,
-        message: "Print command sent successfully",
-      };
-    } finally {
-      if (!printWindow.isDestroyed()) {
-        printWindow.close();
-      }
-    }
+    return {
+      success: true,
+      message: "Print command sent successfully",
+    };
   } catch (error) {
     console.error(
       "Failed to print file:",

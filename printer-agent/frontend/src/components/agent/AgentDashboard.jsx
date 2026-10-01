@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useState,
 } from "react";
 
@@ -23,11 +24,58 @@ export default function AgentDashboard({
     useState("");
 
   const printers =
-    Array.isArray(
-      agent?.printers
-    )
+    Array.isArray(agent?.printers)
       ? agent.printers
       : [];
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const refreshAgentStatus = async () => {
+      try {
+        if (!window.printerAgent) {
+          return;
+        }
+
+        const status =
+          await window.printerAgent.getStatus();
+
+        if (
+          cancelled ||
+          !status?.running
+        ) {
+          return;
+        }
+
+        onAgentUpdate({
+          running: true,
+          user: status.user || null,
+          printers: Array.isArray(
+            status.printers
+          )
+            ? status.printers
+            : [],
+        });
+      } catch (error) {
+        console.error(
+          "Failed to refresh agent status:",
+          error
+        );
+      }
+    };
+
+    refreshAgentStatus();
+
+    const interval = setInterval(
+      refreshAgentStatus,
+      5000
+    );
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [onAgentUpdate]);
 
   const handlePrinterRegistered = (
     printer

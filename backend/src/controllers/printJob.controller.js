@@ -2,18 +2,17 @@ import printJobService from "../services/printJob.service.js";
 
 const createPrintJob = async (req, res) => {
   try {
-    const { printerId, fileName, fileUrl, copies } = req.body;
+    const { fileName, fileUrl, copies } = req.body;
 
-    if (!printerId || !fileName || !fileUrl) {
+    if (!fileName || !fileUrl) {
       return res.status(400).json({
         success: false,
-        message: "Printer ID, file name and file URL are required",
+        message: "File name and file URL are required",
       });
     }
 
     const printJob = await printJobService.createPrintJob({
       userId: req.user.userId,
-      printerId,
       fileName,
       fileUrl,
       copies,
@@ -34,7 +33,9 @@ const createPrintJob = async (req, res) => {
 
 const getMyPrintJobs = async (req, res) => {
   try {
-    const printJobs = await printJobService.getMyPrintJobs(req.user.userId);
+    const printJobs = await printJobService.getMyPrintJobs(
+      req.user.userId
+    );
 
     return res.status(200).json({
       success: true,
@@ -53,11 +54,12 @@ const updatePrintJobStatus = async (req, res) => {
   try {
     const { status } = req.body;
 
-    const printJob = await printJobService.updatePrintJobStatus(
-      req.params.id,
-      req.user.userId,
-      status,
-    );
+    const printJob =
+      await printJobService.updatePrintJobStatus(
+        req.params.id,
+        req.user.userId,
+        status
+      );
 
     return res.status(200).json({
       success: true,
@@ -82,10 +84,12 @@ const getQueuedPrintJobs = async (req, res) => {
         message: "Printer ID is required",
       });
     }
-    const printJobs = await printJobService.getQueuedPrintJobs(
-      printerId,
-      req.user.userId,
-    );
+
+    const printJobs =
+      await printJobService.getQueuedPrintJobs(
+        printerId,
+        req.user.userId
+      );
 
     return res.status(200).json({
       success: true,

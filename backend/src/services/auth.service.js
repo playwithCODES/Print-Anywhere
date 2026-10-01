@@ -2,14 +2,25 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
-const registerUser = async ({ name, email, password }) => {
-  const existingUser = await User.findOne({ email });
+const registerUser = async ({
+  name,
+  email,
+  password,
+}) => {
+  const existingUser = await User.findOne({
+    email,
+  });
 
   if (existingUser) {
-    throw new Error("User with this email already exists");
+    throw new Error(
+      "User with this email already exists"
+    );
   }
 
-  const hashedPassword = await bcrypt.hash(password, 10);
+  const hashedPassword = await bcrypt.hash(
+    password,
+    10
+  );
 
   const user = await User.create({
     name,
@@ -17,25 +28,50 @@ const registerUser = async ({ name, email, password }) => {
     password: hashedPassword,
   });
 
+  const token = jwt.sign(
+    {
+      userId: user._id,
+      role: user.role,
+    },
+    process.env.JWT_SECRET,
+    {
+      expiresIn: "7d",
+    }
+  );
+
   return {
-    id: user._id,
-    name: user.name,
-    email: user.email,
-    role: user.role,
+    token,
+    user: {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    },
   };
 };
 
-const loginUser = async ({ email, password }) => {
+const loginUser = async ({
+  email,
+  password,
+}) => {
   const user = await User.findOne({ email });
 
   if (!user) {
-    throw new Error("Invalid email or password");
+    throw new Error(
+      "Invalid email or password"
+    );
   }
 
-  const isPasswordValid = await bcrypt.compare(password, user.password);
+  const isPasswordValid =
+    await bcrypt.compare(
+      password,
+      user.password
+    );
 
   if (!isPasswordValid) {
-    throw new Error("Invalid email or password");
+    throw new Error(
+      "Invalid email or password"
+    );
   }
 
   const token = jwt.sign(
