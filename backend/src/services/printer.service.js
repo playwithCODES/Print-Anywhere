@@ -7,7 +7,15 @@ const registerPrinter = async (data, userId) => {
   const existingPrinter = await Printer.findOne({ printerId });
 
   if (existingPrinter) {
-    throw new Error("Printer already registered");
+    if (existingPrinter.owner.toString() !== userId.toString()) {
+      throw new Error("Printer is already registered to another user");
+    }
+
+    return {
+      printer: existingPrinter,
+      printerToken: null,
+      alreadyRegistered: true,
+    };
   }
 
   const printerToken = crypto.randomBytes(32).toString("hex");
@@ -29,11 +37,14 @@ const registerPrinter = async (data, userId) => {
   return {
     printer,
     printerToken,
+    alreadyRegistered: false,
   };
 };
 
 const getMyPrinters = async (userId) => {
-  const printers = await Printer.find({ owner: userId });
+  const printers = await Printer.find({
+    owner: userId,
+  });
 
   return printers;
 };
@@ -61,14 +72,16 @@ const updateHeartbeat = async (printerId, userId) => {
 };
 
 const checkPrinterStatus = async () => {
-  const timeout = 2 * 60 * 1000; // 2 minutes
+  const timeout = 2 * 60 * 1000;
 
   const cutoffTime = new Date(Date.now() - timeout);
 
   await Printer.updateMany(
     {
       status: "online",
-      lastSeen: { $lt: cutoffTime },
+      lastSeen: {
+        $lt: cutoffTime,
+      },
     },
     {
       status: "offline",
@@ -82,4 +95,3 @@ export default {
   updateHeartbeat,
   checkPrinterStatus,
 };
-

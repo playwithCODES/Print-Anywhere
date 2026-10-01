@@ -1,0 +1,18 @@
+{
+  "name": "print-anywhere-agent",
+  "version": "1.0.0",
+  "description": "Print Anywhere desktop printer agent",
+  "type": "module",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron ."
+  },
+  "dependencies": {
+    "axios": "^1.0.0",
+    "dotenv": "^17.0.0"
+  },
+  "devDependencies": {
+    "electron": "^38.0.0"
+  }
+}

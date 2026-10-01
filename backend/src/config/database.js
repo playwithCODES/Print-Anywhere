@@ -1,4 +1,7 @@
+import dns from "dns";
 import mongoose from "mongoose";
+
+dns.setServers(["8.8.8.8"]);
 
 const connectDB = async () => {
   try {
@@ -6,7 +9,11 @@ const connectDB = async () => {
 
     console.log("MongoDB connected successfully");
   } catch (error) {
-    console.error("MongoDB connection failed:", error.message);
+    console.error(
+      "MongoDB connection failed:",
+      error.message
+    );
+
     process.exit(1);
   }
 };

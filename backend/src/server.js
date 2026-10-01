@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import uploadRouter from "./routes/upload.route.js";
 
 import authRouter from "./routes/auth.route.js";
 import printerRouter from "./routes/printer.route.js";
@@ -26,6 +27,7 @@ app.use(express.json());
 app.use("/api/auth", authRouter);
 app.use("/api/printers", printerRouter);
 app.use("/api/print-jobs", printJobRouter);
+app.use("/api/uploads", uploadRouter);
 
 const PORT = process.env.PORT || 5000;
 
