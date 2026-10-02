@@ -9,60 +9,45 @@ import AgentLogin from "@/components/agent/AgentLogin";
 import AgentDashboard from "@/components/agent/AgentDashboard";
 
 export default function HomePage() {
-  const [agent, setAgent] =
-    useState(null);
-
-  const [loading, setLoading] =
-    useState(true);
+  const [agent, setAgent] = useState(null);
 
   useEffect(() => {
-    let cancelled = false;
-
-    const loadAgent = async () => {
+    const restoreAgent = async () => {
       try {
-        if (
-          !window.printerAgent
-        ) {
+        if (!window.printerAgent) {
+          console.error(
+            "Printer Agent bridge is not available"
+          );
           return;
         }
 
         const status =
           await window.printerAgent.getStatus();
 
-        if (cancelled) {
-          return;
-        }
+        console.log(
+          "Agent status:",
+          status
+        );
 
         if (status?.running) {
           setAgent({
             running: true,
-            user:
-              status.user || null,
+            user: status.user || null,
             printers:
-              Array.isArray(
-                status.printers
-              )
+              Array.isArray(status.printers)
                 ? status.printers
                 : [],
           });
         }
       } catch (error) {
         console.error(
-          "Failed to load agent:",
+          "Failed to restore agent:",
           error
         );
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
       }
     };
 
-    loadAgent();
-
-    return () => {
-      cancelled = true;
-    };
+    restoreAgent();
   }, []);
 
   const handleConnected = (
@@ -70,12 +55,9 @@ export default function HomePage() {
   ) => {
     setAgent({
       running: true,
-      user:
-        agentData?.user || null,
+      user: agentData?.user || null,
       printers:
-        Array.isArray(
-          agentData?.printers
-        )
+        Array.isArray(agentData?.printers)
           ? agentData.printers
           : [],
     });
@@ -90,8 +72,7 @@ export default function HomePage() {
       }
 
       if (
-        typeof update ===
-        "function"
+        typeof update === "function"
       ) {
         return update(previous);
       }
@@ -107,22 +88,10 @@ export default function HomePage() {
     setAgent(null);
   };
 
-  if (loading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-100">
-        <p className="text-sm text-slate-500">
-          Loading Printer Agent...
-        </p>
-      </main>
-    );
-  }
-
   if (!agent) {
     return (
       <AgentLogin
-        onConnected={
-          handleConnected
-        }
+        onConnected={handleConnected}
       />
     );
   }
@@ -130,9 +99,7 @@ export default function HomePage() {
   return (
     <AgentDashboard
       agent={agent}
-      onAgentUpdate={
-        handleAgentUpdate
-      }
+      onAgentUpdate={handleAgentUpdate}
       onLogout={handleLogout}
     />
   );

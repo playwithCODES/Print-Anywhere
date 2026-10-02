@@ -1,4 +1,4 @@
-import "dotenv/config";
+import config from "./config/config.js";
 
 import {
   app,
@@ -22,30 +22,88 @@ const __dirname =
 let mainWindow = null;
 
 const createWindow = () => {
-  mainWindow =
-    new BrowserWindow({
-      width: 1000,
-      height: 700,
+  mainWindow = new BrowserWindow({
+    width: 1000,
+    height: 700,
 
-      webPreferences: {
-        preload: path.join(
-          __dirname,
-          "preload.mjs"
-        ),
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: false,
-      },
-    });
+    webPreferences: {
+      preload: path.join(
+        __dirname,
+        "preload.mjs"
+      ),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+    },
+  });
 
-  mainWindow.loadURL(
-    "http://localhost:3001"
-  );
+  if (app.isPackaged) {
+    const frontendPath = path.join(
+      process.resourcesPath,
+      "frontend",
+      "out",
+      "index.html"
+    );
+
+    console.log(
+      "Packaged frontend path:",
+      frontendPath
+    );
+
+    mainWindow.loadFile(
+      frontendPath
+    );
+  } else {
+    console.log(
+      "Electron development frontend URL:",
+      config.frontendUrl
+    );
+
+    console.log(
+      "Electron is packaged:",
+      app.isPackaged
+    );
+
+    mainWindow.loadURL(
+      config.frontendUrl
+    );
+
+    mainWindow.webContents.on(
+      "did-finish-load",
+      () => {
+        console.log(
+          "Electron frontend loaded:",
+          mainWindow.webContents.getURL()
+        );
+      }
+    );
+
+    mainWindow.webContents.on(
+      "did-fail-load",
+      (
+        event,
+        errorCode,
+        errorDescription,
+        validatedURL
+      ) => {
+        console.error(
+          "Electron frontend failed:",
+          {
+            errorCode,
+            errorDescription,
+            validatedURL,
+          }
+        );
+      }
+    );
+  }
 };
 
-/* ================================
-   LOGIN
-================================ */
+/*
+|--------------------------------------------------------------------------
+| Agent Login
+|--------------------------------------------------------------------------
+*/
 
 ipcMain.handle(
   "agent:login",
@@ -65,18 +123,30 @@ ipcMain.handle(
         );
       }
 
+      console.log(
+        "LOGIN REQUEST:",
+        email
+      );
+
       const agent =
         await agentService.startAgent(
           email,
           password
         );
 
+      console.log(
+        "LOGIN RESPONSE:",
+        agent
+      );
+
       return {
         success: true,
         message:
           "Agent login successful",
+
         data: {
           user: agent.user,
+
           printers:
             agent.printers || [],
         },
@@ -90,6 +160,7 @@ ipcMain.handle(
 
       return {
         success: false,
+
         message:
           error.response?.data?.message ||
           error.message ||
@@ -99,9 +170,11 @@ ipcMain.handle(
   }
 );
 
-/* ================================
-   REGISTER ACCOUNT
-================================ */
+/*
+|--------------------------------------------------------------------------
+| Agent Registration
+|--------------------------------------------------------------------------
+*/
 
 ipcMain.handle(
   "agent:register",
@@ -135,10 +208,13 @@ ipcMain.handle(
 
       return {
         success: true,
+
         message:
           "Account created successfully",
+
         data: {
           user: agent.user,
+
           printers:
             agent.printers || [],
         },
@@ -152,6 +228,7 @@ ipcMain.handle(
 
       return {
         success: false,
+
         message:
           error.response?.data?.message ||
           error.message ||
@@ -161,9 +238,11 @@ ipcMain.handle(
   }
 );
 
-/* ================================
-   STATUS
-================================ */
+/*
+|--------------------------------------------------------------------------
+| Agent Status
+|--------------------------------------------------------------------------
+*/
 
 ipcMain.handle(
   "agent:get-status",
@@ -172,9 +251,11 @@ ipcMain.handle(
   }
 );
 
-/* ================================
-   LOGOUT
-================================ */
+/*
+|--------------------------------------------------------------------------
+| Agent Logout
+|--------------------------------------------------------------------------
+*/
 
 ipcMain.handle(
   "agent:logout",
@@ -183,15 +264,18 @@ ipcMain.handle(
 
     return {
       success: true,
+
       message:
         "Agent logged out successfully",
     };
   }
 );
 
-/* ================================
-   GET LOCAL PRINTERS
-================================ */
+/*
+|--------------------------------------------------------------------------
+| Get Local Printers
+|--------------------------------------------------------------------------
+*/
 
 ipcMain.handle(
   "printer:get-local-printers",
@@ -202,6 +286,7 @@ ipcMain.handle(
 
       return {
         success: true,
+
         printers:
           Array.isArray(printers)
             ? printers
@@ -215,16 +300,21 @@ ipcMain.handle(
 
       return {
         success: false,
-        message: error.message,
+
+        message:
+          error.message,
+
         printers: [],
       };
     }
   }
 );
 
-/* ================================
-   REGISTER PRINTER
-================================ */
+/*
+|--------------------------------------------------------------------------
+| Register Printer
+|--------------------------------------------------------------------------
+*/
 
 ipcMain.handle(
   "printer:register",
@@ -240,8 +330,10 @@ ipcMain.handle(
 
       return {
         success: true,
+
         message:
           "Printer registered successfully",
+
         printer:
           registeredPrinter,
       };
@@ -254,6 +346,7 @@ ipcMain.handle(
 
       return {
         success: false,
+
         message:
           error.response?.data?.message ||
           error.message ||
@@ -263,9 +356,11 @@ ipcMain.handle(
   }
 );
 
-/* ================================
-   ELECTRON READY
-================================ */
+/*
+|--------------------------------------------------------------------------
+| Electron Ready
+|--------------------------------------------------------------------------
+*/
 
 app.whenReady().then(
   async () => {
@@ -288,9 +383,11 @@ app.whenReady().then(
   }
 );
 
-/* ================================
-   CLOSE
-================================ */
+/*
+|--------------------------------------------------------------------------
+| Close Application
+|--------------------------------------------------------------------------
+*/
 
 app.on(
   "window-all-closed",
