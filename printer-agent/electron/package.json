@@ -1,6 +1,6 @@
 {
   "name": "print-anywhere-agent",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Print Anywhere desktop printer agent",
   "type": "module",
   "main": "main.js",

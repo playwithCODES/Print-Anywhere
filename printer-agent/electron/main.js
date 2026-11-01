@@ -362,26 +362,27 @@ ipcMain.handle(
 |--------------------------------------------------------------------------
 */
 
-app.whenReady().then(
-  async () => {
-    createWindow();
 
-    await agentService.restoreAgent();
-
-    app.on(
-      "activate",
-      () => {
-        if (
-          BrowserWindow
-            .getAllWindows()
-            .length === 0
-        ) {
-          createWindow();
-        }
-      }
-    );
+app.whenReady().then(async () => {
+  // Automatically launch the agent when Windows starts.
+  if (app.isPackaged) {
+    app.setLoginItemSettings({
+      openAtLogin: true,
+    });
   }
-);
+
+  createWindow();
+
+  // Restore the saved login session and start agent workers.
+  await agentService.restoreAgent();
+
+  app.on("activate", () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+    }
+  });
+});
+
 
 /*
 |--------------------------------------------------------------------------
