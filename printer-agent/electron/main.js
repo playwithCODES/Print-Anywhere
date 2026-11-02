@@ -32,12 +32,23 @@ let isQuitting = false;
 
 const createTrayIcon = () => {
   const iconPath = path.join(
-    __dirname,
+    app.getAppPath(),
     "assets",
     "tray.png"
   );
 
-  return nativeImage.createFromPath(iconPath);
+  const icon = nativeImage.createFromPath(iconPath);
+
+  if (icon.isEmpty()) {
+    console.error("Tray icon failed to load:", iconPath);
+    return nativeImage.createEmpty();
+  }
+
+  // Windows system tray icon size
+  return icon.resize({
+    width: 16,
+    height: 16,
+  });
 };
 
 /*

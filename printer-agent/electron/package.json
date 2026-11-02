@@ -1,6 +1,7 @@
+
 {
   "name": "print-anywhere-agent",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Print Anywhere desktop printer agent",
   "type": "module",
   "main": "main.js",
@@ -25,7 +26,13 @@
       "output": "dist"
     },
     "files": [
-      "**/*"
+      "main.js",
+      "preload.mjs",
+      "config/**/*",
+      "services/**/*",
+      "workers/**/*",
+      "assets/**/*",
+      "package.json"
     ],
     "extraResources": [
       {
