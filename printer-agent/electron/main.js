@@ -31,26 +31,13 @@ let isQuitting = false;
 */
 
 const createTrayIcon = () => {
-  // Simple printer icon embedded as SVG.
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg"
-      width="32" height="32" viewBox="0 0 32 32">
-      <rect x="5" y="10" width="22" height="13"
-        rx="3" fill="#2563eb"/>
-      <rect x="9" y="3" width="14" height="10"
-        rx="1" fill="#ffffff" stroke="#2563eb"
-        stroke-width="2"/>
-      <rect x="9" y="19" width="14" height="10"
-        rx="1" fill="#ffffff" stroke="#2563eb"
-        stroke-width="2"/>
-      <circle cx="23" cy="14" r="1.5" fill="#ffffff"/>
-    </svg>
-  `;
+  const iconPath = path.join(
+    __dirname,
+    "assets",
+    "tray.png"
+  );
 
-  const dataUrl =
-    `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-
-  return nativeImage.createFromDataURL(dataUrl);
+  return nativeImage.createFromPath(iconPath);
 };
 
 /*
