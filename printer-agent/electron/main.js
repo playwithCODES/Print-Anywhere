@@ -1,9 +1,13 @@
+
 import config from "./config/config.js";
 
 import {
   app,
   BrowserWindow,
   ipcMain,
+  Tray,
+  Menu,
+  nativeImage,
 } from "electron";
 
 import path from "path";
@@ -13,13 +17,132 @@ import {
 
 import agentService from "./services/agent.service.js";
 
-const __filename =
-  fileURLToPath(import.meta.url);
-
-const __dirname =
-  path.dirname(__filename);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 let mainWindow = null;
+let tray = null;
+let isQuitting = false;
+
+/*
+|--------------------------------------------------------------------------
+| Create Tray Icon
+|--------------------------------------------------------------------------
+*/
+
+const createTrayIcon = () => {
+  // Simple printer icon embedded as SVG.
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg"
+      width="32" height="32" viewBox="0 0 32 32">
+      <rect x="5" y="10" width="22" height="13"
+        rx="3" fill="#2563eb"/>
+      <rect x="9" y="3" width="14" height="10"
+        rx="1" fill="#ffffff" stroke="#2563eb"
+        stroke-width="2"/>
+      <rect x="9" y="19" width="14" height="10"
+        rx="1" fill="#ffffff" stroke="#2563eb"
+        stroke-width="2"/>
+      <circle cx="23" cy="14" r="1.5" fill="#ffffff"/>
+    </svg>
+  `;
+
+  const dataUrl =
+    `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+
+  return nativeImage.createFromDataURL(dataUrl);
+};
+
+/*
+|--------------------------------------------------------------------------
+| Show Dashboard
+|--------------------------------------------------------------------------
+*/
+
+const showDashboard = () => {
+  if (!mainWindow) {
+    createWindow();
+    return;
+  }
+
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore();
+  }
+
+  mainWindow.show();
+  mainWindow.focus();
+};
+
+/*
+|--------------------------------------------------------------------------
+| Create System Tray
+|--------------------------------------------------------------------------
+*/
+
+const createTray = () => {
+  if (tray) return;
+
+  tray = new Tray(createTrayIcon());
+
+  tray.setToolTip("Print Anywhere Agent");
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: "Open Dashboard",
+      click: () => {
+        showDashboard();
+      },
+    },
+
+   {
+  label: "Logout",
+  click: async () => {
+    try {
+      agentService.stopAgent();
+
+      // Show the login page after explicitly logging out.
+      showDashboard();
+
+      if (mainWindow) {
+        mainWindow.reload();
+      }
+    } catch (error) {
+      console.error(
+        "Tray logout failed:",
+        error.message
+      );
+    }
+  },
+},
+
+    {
+      type: "separator",
+    },
+
+    {
+      label: "Quit Agent",
+      click: () => {
+        isQuitting = true;
+
+        agentService.stopAgent();
+
+        app.quit();
+      },
+    },
+  ]);
+
+  tray.setContextMenu(contextMenu);
+
+  tray.on("double-click", () => {
+    showDashboard();
+  });
+};
+
+/*
+|--------------------------------------------------------------------------
+| Create Electron Window
+|--------------------------------------------------------------------------
+*/
 
 const createWindow = () => {
   mainWindow = new BrowserWindow({
@@ -31,6 +154,7 @@ const createWindow = () => {
         __dirname,
         "preload.mjs"
       ),
+
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
@@ -50,23 +174,14 @@ const createWindow = () => {
       frontendPath
     );
 
-    mainWindow.loadFile(
-      frontendPath
-    );
+    mainWindow.loadFile(frontendPath);
   } else {
     console.log(
       "Electron development frontend URL:",
       config.frontendUrl
     );
 
-    console.log(
-      "Electron is packaged:",
-      app.isPackaged
-    );
-
-    mainWindow.loadURL(
-      config.frontendUrl
-    );
+    mainWindow.loadURL(config.frontendUrl);
 
     mainWindow.webContents.on(
       "did-finish-load",
@@ -97,6 +212,28 @@ const createWindow = () => {
       }
     );
   }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Close Window -> Hide To Tray
+  |--------------------------------------------------------------------------
+  */
+
+  mainWindow.on("close", (event) => {
+    if (!isQuitting) {
+      event.preventDefault();
+
+      mainWindow.hide();
+
+      console.log(
+        "Print Anywhere hidden to system tray"
+      );
+    }
+  });
+
+  mainWindow.on("closed", () => {
+    mainWindow = null;
+  });
 };
 
 /*
@@ -107,10 +244,7 @@ const createWindow = () => {
 
 ipcMain.handle(
   "agent:login",
-  async (
-    event,
-    credentials
-  ) => {
+  async (event, credentials) => {
     try {
       const {
         email,
@@ -141,6 +275,7 @@ ipcMain.handle(
 
       return {
         success: true,
+
         message:
           "Agent login successful",
 
@@ -178,10 +313,7 @@ ipcMain.handle(
 
 ipcMain.handle(
   "agent:register",
-  async (
-    event,
-    data
-  ) => {
+  async (event, data) => {
     try {
       const {
         name,
@@ -318,10 +450,7 @@ ipcMain.handle(
 
 ipcMain.handle(
   "printer:register",
-  async (
-    event,
-    printer
-  ) => {
+  async (event, printer) => {
     try {
       const registeredPrinter =
         await agentService.registerLocalPrinter(
@@ -362,7 +491,6 @@ ipcMain.handle(
 |--------------------------------------------------------------------------
 */
 
-
 app.whenReady().then(async () => {
   // Automatically launch the agent when Windows starts.
   if (app.isPackaged) {
@@ -371,18 +499,45 @@ app.whenReady().then(async () => {
     });
   }
 
-  createWindow();
+  // Create tray first so the agent is accessible in the background.
+  createTray();
 
   // Restore the saved login session and start agent workers.
-  await agentService.restoreAgent();
+  // Do not create or show the dashboard during startup.
+  try {
+    const restoredAgent = await agentService.restoreAgent();
 
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+    if (restoredAgent?.running) {
+      console.log(
+        "Agent session restored successfully in background"
+      );
+    } else {
+      console.log(
+        "No active saved session. Agent is waiting in the system tray."
+      );
     }
+  } catch (error) {
+    console.error(
+      "Agent startup restore failed:",
+      error.message
+    );
+  }
+
+  // Open the dashboard only when requested by the user.
+  app.on("activate", () => {
+    showDashboard();
   });
 });
 
+/*
+|--------------------------------------------------------------------------
+| Prevent Accidental Application Quit
+|--------------------------------------------------------------------------
+*/
+
+app.on("before-quit", () => {
+  isQuitting = true;
+});
 
 /*
 |--------------------------------------------------------------------------
@@ -390,14 +545,6 @@ app.whenReady().then(async () => {
 |--------------------------------------------------------------------------
 */
 
-app.on(
-  "window-all-closed",
-  () => {
-    if (
-      process.platform !==
-      "darwin"
-    ) {
-      app.quit();
-    }
-  }
-);
+app.on("window-all-closed", () => {
+  // Do not quit. The application stays in the system tray.
+});
