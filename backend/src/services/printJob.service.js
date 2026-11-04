@@ -1,23 +1,30 @@
 import PrintJob from "../models/PrintJob.js";
 import Printer from "../models/Printer.js";
 
+
 const createPrintJob = async ({
   userId,
+  printerId,
   fileName,
   fileUrl,
   copies,
 }) => {
+  if (!printerId) {
+    throw new Error("Please select a printer");
+  }
+
   const printer = await Printer.findOne({
+    printerId,
     owner: userId,
     isActive: true,
   });
 
   if (!printer) {
-    throw new Error("No active printer found");
+    throw new Error("Selected printer not found or inactive");
   }
 
   if (printer.status !== "online") {
-    throw new Error("Printer is offline");
+    throw new Error("Selected printer is offline");
   }
 
   const printJob = await PrintJob.create({
@@ -31,6 +38,7 @@ const createPrintJob = async ({
 
   return printJob;
 };
+
 
 const getMyPrintJobs = async (userId) => {
   const printJobs = await PrintJob.find({

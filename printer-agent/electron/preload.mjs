@@ -1,64 +1,38 @@
-import {
-  contextBridge,
-  ipcRenderer,
-} from "electron";
+import { contextBridge, ipcRenderer } from "electron";
 
-contextBridge.exposeInMainWorld(
-  "printerAgent",
-  {
-    login: (
+contextBridge.exposeInMainWorld("printerAgent", {
+  login: (email, password) => {
+    return ipcRenderer.invoke("agent:login", {
       email,
-      password
-    ) => {
-      return ipcRenderer.invoke(
-        "agent:login",
-        {
-          email,
-          password,
-        }
-      );
-    },
+      password,
+    });
+  },
 
-    register: (
+  register: (name, email, password) => {
+    return ipcRenderer.invoke("agent:register", {
       name,
       email,
-      password
-    ) => {
-      return ipcRenderer.invoke(
-        "agent:register",
-        {
-          name,
-          email,
-          password,
-        }
-      );
-    },
+      password,
+    });
+  },
 
-    getStatus: () => {
-      return ipcRenderer.invoke(
-        "agent:get-status"
-      );
-    },
+  getStatus: () => {
+    return ipcRenderer.invoke("agent:get-status");
+  },
 
-    logout: () => {
-      return ipcRenderer.invoke(
-        "agent:logout"
-      );
-    },
+  logout: () => {
+    return ipcRenderer.invoke("agent:logout");
+  },
 
-    getLocalPrinters: () => {
-      return ipcRenderer.invoke(
-        "printer:get-local-printers"
-      );
-    },
+  getLocalPrinters: () => {
+    return ipcRenderer.invoke("printer:get-local-printers");
+  },
 
-    registerPrinter: (
-      printer
-    ) => {
-      return ipcRenderer.invoke(
-        "printer:register",
-        printer
-      );
-    },
-  }
-);
+  registerPrinter: (printer) => {
+    return ipcRenderer.invoke("printer:register", printer);
+  },
+
+  removePrinter: (printerId) => {
+    return ipcRenderer.invoke("printer:remove", printerId);
+  },
+});

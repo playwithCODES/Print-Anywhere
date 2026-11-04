@@ -36,6 +36,35 @@ const getMyPrinters = async (req, res) => {
   }
 };
 
+
+const removePrinter = async (req, res) => {
+  try {
+    const { printerId } = req.params;
+
+    const printer = await printerService.removePrinter(
+      printerId,
+      req.user.userId
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Printer removed successfully",
+      printer,
+    });
+  } catch (error) {
+    const statusCode =
+      error.message === "Printer not found or already removed"
+        ? 404
+        : 500;
+
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
 const updateHeartbeat = async (req, res) => {
   try {
     const { printerId } = req.body;
@@ -69,4 +98,5 @@ export default {
   registerPrinter,
   getMyPrinters,
   updateHeartbeat,
+  removePrinter,
 };

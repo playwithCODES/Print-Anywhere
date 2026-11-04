@@ -234,6 +234,55 @@ const registerLocalPrinter = async (
   return registeredPrinter;
 };
 
+
+const removeLocalPrinter = async (printerId) => {
+  if (!agentState.running) {
+    throw new Error("Printer Agent is not connected");
+  }
+
+  if (!printerId) {
+    throw new Error("Printer ID is required");
+  }
+
+  const printerExists = agentState.printers.some(
+    (printer) => printer.printerId === printerId
+  );
+
+  if (!printerExists) {
+    throw new Error("Printer not found in Agent");
+  }
+
+  // First, unregister the printer from backend.
+  const response = await printerService.removePrinter(
+    printerId,
+    agentState.token
+  );
+
+  if (!response?.success) {
+    throw new Error(
+      response?.message || "Failed to remove printer"
+    );
+  }
+
+  // Stop existing heartbeat and print workers.
+  stopWorkers();
+
+  // Remove only the selected printer.
+  agentState.printers = agentState.printers.filter(
+    (printer) => printer.printerId !== printerId
+  );
+
+  // Restart workers for remaining printers.
+  await startWorkers();
+
+  return {
+    success: true,
+    message: "Printer removed successfully",
+    printers: agentState.printers,
+  };
+};
+
+
 const getLocalPrinters = async () => {
   if (!agentState.running) {
     throw new Error(
@@ -315,4 +364,5 @@ export default {
   restoreAgent,
   stopAgent,
   getAgentState,
+  removeLocalPrinter,
 };

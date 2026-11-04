@@ -1,12 +1,14 @@
+
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import printerService from "@/services/printer.service.js";
 import uploadService from "@/services/upload.service.js";
 import printJobService from "@/services/printjob.service.js";
 
 export default function PrintPage() {
   const [printers, setPrinters] = useState([]);
+  const [selectedPrinterId, setSelectedPrinterId] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
   const [copies, setCopies] = useState("1");
 
@@ -14,6 +16,8 @@ export default function PrintPage() {
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     const loadPrinters = async () => {
@@ -24,10 +28,20 @@ export default function PrintPage() {
         const response = await printerService.getMyPrinters();
 
         const userPrinters = Array.isArray(response?.printers)
-          ? response.printers
+          ? response.printers.filter(
+              (printer) => printer?.isActive === true
+            )
           : [];
 
         setPrinters(userPrinters);
+
+        const firstOnlinePrinter = userPrinters.find(
+          (printer) => printer.status === "online"
+        );
+
+        setSelectedPrinterId(
+          firstOnlinePrinter?.printerId || ""
+        );
       } catch (error) {
         console.error(
           "Failed to load printers:",
@@ -46,9 +60,19 @@ export default function PrintPage() {
     loadPrinters();
   }, []);
 
-  const activePrinter = printers.find(
-    (printer) => printer?.isActive === true
+  const selectedPrinter = printers.find(
+    (printer) => printer.printerId === selectedPrinterId
   );
+
+  const onlinePrinters = printers.filter(
+    (printer) => printer.status === "online"
+  );
+
+  const handlePrinterChange = (event) => {
+    setSelectedPrinterId(event.target.value);
+    setError("");
+    setMessage("");
+  };
 
   const handleFileChange = (event) => {
     const file = event.target.files?.[0];
@@ -74,6 +98,17 @@ export default function PrintPage() {
     setSelectedFile(file);
   };
 
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+
+    setError("");
+    setMessage("");
+  };
+
   const handleCopiesChange = (event) => {
     setCopies(event.target.value);
     setError("");
@@ -85,13 +120,13 @@ export default function PrintPage() {
     setError("");
     setMessage("");
 
-    if (!activePrinter) {
-      setError("No active printer is available.");
+    if (!selectedPrinterId) {
+      setError("Please select an online printer.");
       return;
     }
 
-    if (activePrinter.status !== "online") {
-      setError("The active printer is offline.");
+    if (!selectedPrinter || selectedPrinter.status !== "online") {
+      setError("Selected printer is offline.");
       return;
     }
 
@@ -102,10 +137,7 @@ export default function PrintPage() {
 
     const copyCount = Number(copies);
 
-    if (
-      !Number.isInteger(copyCount) ||
-      copyCount < 1
-    ) {
+    if (!Number.isInteger(copyCount) || copyCount < 1) {
       setError("Copies must be at least 1.");
       return;
     }
@@ -122,21 +154,21 @@ export default function PrintPage() {
       setMessage("Creating print job...");
 
       await printJobService.createPrintJob({
+        printerId: selectedPrinterId,
         fileName: uploadedFile.fileName,
         fileUrl: uploadedFile.fileUrl,
         copies: copyCount,
       });
 
-      setMessage("PDF sent to printer successfully.");
+      setMessage(
+        `Print job created successfully for ${selectedPrinter.name}.`
+      );
 
       setSelectedFile(null);
       setCopies("1");
 
-      const fileInput =
-        document.getElementById("document");
-
-      if (fileInput) {
-        fileInput.value = "";
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
       }
     } catch (error) {
       console.error(
@@ -164,55 +196,77 @@ export default function PrintPage() {
             </h1>
 
             <p className="mt-1 text-sm text-slate-500">
-              Send a PDF to your active printer.
+              Select a printer and send your PDF document.
             </p>
           </div>
 
-          {loading ? (
-            <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
-              Loading printer...
-            </div>
-          ) : activePrinter ? (
-            <div
-              className={`mb-6 rounded-xl border p-4 ${
-                activePrinter.status === "online"
-                  ? "border-green-200 bg-green-50"
-                  : "border-red-200 bg-red-50"
-              }`}
+          {/* Printer Selection */}
+          <div className="mb-6">
+            <label
+              htmlFor="printer"
+              className="mb-2 block text-sm font-medium text-slate-700"
             >
+              Select Printer
+            </label>
+
+            {loading ? (
+              <div className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">
+                Loading printers...
+              </div>
+            ) : onlinePrinters.length > 0 ? (
+              <select
+                id="printer"
+                value={selectedPrinterId}
+                onChange={handlePrinterChange}
+                disabled={sending}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm text-slate-700 outline-none focus:border-blue-500"
+              >
+                <option value="" disabled>
+                  Choose a printer
+                </option>
+
+                {printers.map((printer) => (
+                  <option
+                    key={printer.printerId}
+                    value={printer.printerId}
+                    disabled={printer.status !== "online"}
+                  >
+                    {printer.name} -{" "}
+                    {printer.status === "online" ? "Online" : "Offline"}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+                <p className="font-semibold text-red-700">
+                  No online printer available
+                </p>
+
+                <p className="mt-1 text-sm text-red-600">
+                  Connect a printer through the Printer Agent first.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Selected Printer Details */}
+          {selectedPrinter && (
+            <div className="mb-6 rounded-xl border border-green-200 bg-green-50 p-4">
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-xs font-medium text-slate-500">
-                    Active Printer
+                    Selected Printer
                   </p>
 
                   <p className="mt-1 font-semibold text-slate-900">
-                    {activePrinter.name}
+                    {selectedPrinter.name}
                   </p>
                 </div>
 
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                    activePrinter.status === "online"
-                      ? "bg-green-100 text-green-700"
-                      : "bg-red-100 text-red-700"
-                  }`}
-                >
-                  {activePrinter.status === "online"
-                    ? "Online"
-                    : "Offline"}
+                <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                  Online
                 </span>
               </div>
-            </div>
-          ) : (
-            <div className="mb-6 rounded-xl border border-yellow-200 bg-yellow-50 p-4">
-              <p className="font-semibold text-yellow-800">
-                No active printer
-              </p>
-
-              <p className="mt-1 text-sm text-yellow-700">
-                Please register a printer through the Printer Agent.
-              </p>
             </div>
           )}
 
@@ -228,10 +282,8 @@ export default function PrintPage() {
             </div>
           )}
 
-          <form
-            onSubmit={handleSubmit}
-            className="space-y-5"
-          >
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* PDF Upload */}
             <div>
               <label
                 htmlFor="document"
@@ -241,6 +293,7 @@ export default function PrintPage() {
               </label>
 
               <input
+                ref={fileInputRef}
                 id="document"
                 type="file"
                 accept="application/pdf,.pdf"
@@ -250,12 +303,30 @@ export default function PrintPage() {
               />
 
               {selectedFile && (
-                <p className="mt-2 text-sm text-slate-500">
-                  Selected: {selectedFile.name}
-                </p>
+                <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-slate-800">
+                      {selectedFile.name}
+                    </p>
+
+                    <p className="text-xs text-slate-500">
+                      {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleRemoveFile}
+                    disabled={sending}
+                    className="shrink-0 rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-100 disabled:opacity-50"
+                  >
+                    Remove
+                  </button>
+                </div>
               )}
             </div>
 
+            {/* Copies */}
             <div>
               <label
                 htmlFor="copies"
@@ -282,14 +353,13 @@ export default function PrintPage() {
                 sending ||
                 loading ||
                 !selectedFile ||
-                !activePrinter ||
-                activePrinter.status !== "online"
+                !selectedPrinterId ||
+                !selectedPrinter ||
+                selectedPrinter.status !== "online"
               }
               className="w-full rounded-lg bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {sending
-                ? "Sending..."
-                : "Print Document"}
+              {sending ? "Sending..." : "Print Document"}
             </button>
           </form>
         </div>

@@ -303,6 +303,37 @@ ipcMain.handle(
   }
 );
 
+
+ipcMain.handle(
+  "printer:remove",
+  async (event, printerId) => {
+    try {
+      const result =
+        await agentService.removeLocalPrinter(printerId);
+
+      return {
+        success: true,
+        message: "Printer removed successfully",
+        printers: result.printers,
+      };
+    } catch (error) {
+      console.error(
+        "Printer removal failed:",
+        error.response?.data || error.message
+      );
+
+      return {
+        success: false,
+        message:
+          error.response?.data?.message ||
+          error.message ||
+          "Printer removal failed",
+      };
+    }
+  }
+);
+
+
 /*
 |--------------------------------------------------------------------------
 | Agent Registration

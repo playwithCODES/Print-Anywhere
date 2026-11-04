@@ -9,7 +9,7 @@ const deactivateUserPrinters = async (userId) => {
     },
     {
       isActive: false,
-    }
+    },
   );
 };
 
@@ -21,12 +21,10 @@ const registerPrinter = async (data, userId) => {
   });
 
   if (existingPrinter) {
-    const isSameOwner =
-      existingPrinter.owner.toString() === userId.toString();
+    const isSameOwner = existingPrinter.owner.toString() === userId.toString();
 
     if (isSameOwner) {
-      await deactivateUserPrinters(userId);
-
+      existingPrinter.name = name;
       existingPrinter.isActive = true;
 
       await existingPrinter.save();
@@ -45,10 +43,6 @@ const registerPrinter = async (data, userId) => {
       .update(printerToken)
       .digest("hex");
 
-    // Make any other printer of this user inactive.
-    await deactivateUserPrinters(userId);
-
-    // Transfer this physical printer to the new user.
     existingPrinter.name = name;
     existingPrinter.owner = userId;
     existingPrinter.isActive = true;
@@ -74,9 +68,6 @@ const registerPrinter = async (data, userId) => {
     .update(printerToken)
     .digest("hex");
 
-  // Only one active printer for this user.
-  await deactivateUserPrinters(userId);
-
   const printer = await Printer.create({
     name,
     printerId,
@@ -95,12 +86,41 @@ const registerPrinter = async (data, userId) => {
   };
 };
 
+
 const getMyPrinters = async (userId) => {
   const printers = await Printer.find({
     owner: userId,
-  });
+    isActive: true,
+  })
+    .select("-printerTokenHash")
+    .sort({ createdAt: -1 });
 
   return printers;
+};
+
+
+const removePrinter = async (printerId, userId) => {
+  const printer = await Printer.findOneAndUpdate(
+    {
+      printerId,
+      owner: userId,
+      isActive: true,
+    },
+    {
+      isActive: false,
+      status: "offline",
+      lastSeen: null,
+    },
+    {
+      new: true,
+    },
+  );
+
+  if (!printer) {
+    throw new Error("Printer not found or already removed");
+  }
+
+  return printer;
 };
 
 const updateHeartbeat = async (printerId, userId) => {
@@ -108,6 +128,7 @@ const updateHeartbeat = async (printerId, userId) => {
     {
       printerId,
       owner: userId,
+      isActive: true,
     },
     {
       status: "online",
@@ -115,7 +136,7 @@ const updateHeartbeat = async (printerId, userId) => {
     },
     {
       new: true,
-    }
+    },
   );
 
   if (!printer) {
@@ -128,9 +149,7 @@ const updateHeartbeat = async (printerId, userId) => {
 const checkPrinterStatus = async () => {
   const timeout = 2 * 60 * 1000;
 
-  const cutoffTime = new Date(
-    Date.now() - timeout
-  );
+  const cutoffTime = new Date(Date.now() - timeout);
 
   await Printer.updateMany(
     {
@@ -141,7 +160,7 @@ const checkPrinterStatus = async () => {
     },
     {
       status: "offline",
-    }
+    },
   );
 };
 
@@ -150,4 +169,5 @@ export default {
   getMyPrinters,
   updateHeartbeat,
   checkPrinterStatus,
+  removePrinter,
 };

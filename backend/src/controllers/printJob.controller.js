@@ -1,18 +1,25 @@
 import printJobService from "../services/printJob.service.js";
 
+
 const createPrintJob = async (req, res) => {
   try {
-    const { fileName, fileUrl, copies } = req.body;
+    const {
+      printerId,
+      fileName,
+      fileUrl,
+      copies,
+    } = req.body;
 
-    if (!fileName || !fileUrl) {
+    if (!printerId || !fileName || !fileUrl) {
       return res.status(400).json({
         success: false,
-        message: "File name and file URL are required",
+        message: "Printer ID, file name and file URL are required",
       });
     }
 
     const printJob = await printJobService.createPrintJob({
       userId: req.user.userId,
+      printerId,
       fileName,
       fileUrl,
       copies,
@@ -30,6 +37,7 @@ const createPrintJob = async (req, res) => {
     });
   }
 };
+
 
 const getMyPrintJobs = async (req, res) => {
   try {

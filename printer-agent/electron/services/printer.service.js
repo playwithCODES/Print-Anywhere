@@ -27,6 +27,19 @@ const getMyPrinters = async (token) => {
   return response.data;
 };
 
+const removePrinter = async (printerId, token) => {
+  const response = await apiService.delete(
+    `/printers/${printerId}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  return response.data;
+};
+
 const sendHeartbeat = async (
   printerId,
   token
@@ -48,4 +61,5 @@ export default {
   registerPrinter,
   getMyPrinters,
   sendHeartbeat,
+  removePrinter,
 };

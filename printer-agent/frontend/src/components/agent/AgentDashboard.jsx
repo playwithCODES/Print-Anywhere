@@ -1,32 +1,19 @@
 "use client";
 
-import {
-  useEffect,
-  useState,
-} from "react";
+import { useEffect, useState } from "react";
 
 import AccountInfo from "./AccountInfo";
 import RegisteredPrinters from "./RegisteredPrinters";
 import PrinterSettings from "./PrinterSettings";
 
-export default function AgentDashboard({
-  agent,
-  onAgentUpdate,
-  onLogout,
-}) {
-  const [showSettings, setShowSettings] =
-    useState(false);
+export default function AgentDashboard({ agent, onAgentUpdate, onLogout }) {
+  const [showSettings, setShowSettings] = useState(false);
 
-  const [message, setMessage] =
-    useState("");
+  const [message, setMessage] = useState("");
 
-  const [error, setError] =
-    useState("");
+  const [error, setError] = useState("");
 
-  const printers =
-    Array.isArray(agent?.printers)
-      ? agent.printers
-      : [];
+  const printers = Array.isArray(agent?.printers) ? agent.printers : [];
 
   useEffect(() => {
     let cancelled = false;
@@ -37,39 +24,25 @@ export default function AgentDashboard({
           return;
         }
 
-        const status =
-          await window.printerAgent.getStatus();
+        const status = await window.printerAgent.getStatus();
 
-        if (
-          cancelled ||
-          !status?.running
-        ) {
+        if (cancelled || !status?.running) {
           return;
         }
 
         onAgentUpdate({
           running: true,
           user: status.user || null,
-          printers: Array.isArray(
-            status.printers
-          )
-            ? status.printers
-            : [],
+          printers: Array.isArray(status.printers) ? status.printers : [],
         });
       } catch (error) {
-        console.error(
-          "Failed to refresh agent status:",
-          error
-        );
+        console.error("Failed to refresh agent status:", error);
       }
     };
 
     refreshAgentStatus();
 
-    const interval = setInterval(
-      refreshAgentStatus,
-      5000
-    );
+    const interval = setInterval(refreshAgentStatus, 5000);
 
     return () => {
       cancelled = true;
@@ -77,59 +50,51 @@ export default function AgentDashboard({
     };
   }, [onAgentUpdate]);
 
-  const handlePrinterRegistered = (
-    printer
-  ) => {
+  const handlePrinterRegistered = (printer) => {
     if (!printer) {
       return;
     }
 
-    onAgentUpdate(
-      (previous) => ({
-        ...previous,
-        printers: [
-          ...(Array.isArray(
-            previous?.printers
-          )
-            ? previous.printers
-            : []),
-          printer,
-        ],
-      })
-    );
+    onAgentUpdate((previous) => ({
+      ...previous,
+      printers: [
+        ...(Array.isArray(previous?.printers) ? previous.printers : []),
+        printer,
+      ],
+    }));
 
-    setMessage(
-      `${printer.name} registered successfully.`
-    );
+    setMessage(`${printer.name} registered successfully.`);
 
     setShowSettings(false);
   };
+
+  const handlePrinterRemoved = (updatedPrinters) => {
+  onAgentUpdate((previous) => ({
+    ...previous,
+    printers: Array.isArray(updatedPrinters)
+      ? updatedPrinters
+      : [],
+  }));
+
+  setMessage("Printer removed successfully.");
+  setError("");
+};
 
   const handleLogout = async () => {
     setError("");
 
     try {
-      const response =
-        await window.printerAgent.logout();
+      const response = await window.printerAgent.logout();
 
       if (!response?.success) {
-        throw new Error(
-          response?.message ||
-            "Logout failed"
-        );
+        throw new Error(response?.message || "Logout failed");
       }
 
       onLogout();
     } catch (error) {
-      console.error(
-        "Agent logout failed:",
-        error
-      );
+      console.error("Agent logout failed:", error);
 
-      setError(
-        error.message ||
-          "Logout failed"
-      );
+      setError(error.message || "Logout failed");
     }
   };
 
@@ -141,14 +106,10 @@ export default function AgentDashboard({
             <div>
               <h1 className="text-3xl font-bold text-slate-900">
                 Print
-                <span className="text-blue-600">
-                  Anywhere
-                </span>
+                <span className="text-blue-600">Anywhere</span>
               </h1>
 
-              <p className="mt-2 text-sm text-slate-500">
-                Printer Agent
-              </p>
+              <p className="mt-2 text-sm text-slate-500">Printer Agent</p>
             </div>
 
             <div className="flex gap-2">
@@ -157,9 +118,7 @@ export default function AgentDashboard({
                 onClick={() => {
                   setError("");
                   setMessage("");
-                  setShowSettings(
-                    true
-                  );
+                  setShowSettings(true);
                 }}
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
               >
@@ -168,9 +127,7 @@ export default function AgentDashboard({
 
               <button
                 type="button"
-                onClick={
-                  handleLogout
-                }
+                onClick={handleLogout}
                 className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
               >
                 Logout
@@ -191,16 +148,13 @@ export default function AgentDashboard({
               </p>
 
               <p className="text-sm text-green-600">
-                {agent?.user?.email ||
-                  "User connected"}
+                {agent?.user?.email || "User connected"}
               </p>
             </div>
           </div>
         </div>
 
-        <AccountInfo
-          user={agent?.user}
-        />
+        <AccountInfo user={agent?.user} />
 
         {error && (
           <div className="mb-5 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
@@ -219,21 +173,16 @@ export default function AgentDashboard({
           onOpenSettings={() => {
             setError("");
             setMessage("");
-            setShowSettings(
-              true
-            );
+            setShowSettings(true);
           }}
+          onPrinterRemoved={handlePrinterRemoved}
         />
 
         {showSettings && (
           <PrinterSettings
             printers={printers}
-            onPrinterRegistered={
-              handlePrinterRegistered
-            }
-            onClose={() =>
-              setShowSettings(false)
-            }
+            onPrinterRegistered={handlePrinterRegistered}
+            onClose={() => setShowSettings(false)}
           />
         )}
       </div>
