@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -28,29 +27,25 @@ export default function PrintPage() {
         const response = await printerService.getMyPrinters();
 
         const userPrinters = Array.isArray(response?.printers)
-          ? response.printers.filter(
-              (printer) => printer?.isActive === true
-            )
+          ? response.printers.filter((printer) => printer?.isActive === true)
           : [];
 
         setPrinters(userPrinters);
 
         const firstOnlinePrinter = userPrinters.find(
-          (printer) => printer.status === "online"
+          (printer) => printer.status === "online",
         );
 
-        setSelectedPrinterId(
-          firstOnlinePrinter?.printerId || ""
-        );
+        setSelectedPrinterId(firstOnlinePrinter?.printerId || "");
       } catch (error) {
         console.error(
           "Failed to load printers:",
-          error.response?.data || error.message
+          error.response?.data || error.message,
         );
 
         setError(
           error.response?.data?.message ||
-            "Failed to load printer information."
+            "Failed to load printer information.",
         );
       } finally {
         setLoading(false);
@@ -61,11 +56,11 @@ export default function PrintPage() {
   }, []);
 
   const selectedPrinter = printers.find(
-    (printer) => printer.printerId === selectedPrinterId
+    (printer) => printer.printerId === selectedPrinterId,
   );
 
   const onlinePrinters = printers.filter(
-    (printer) => printer.status === "online"
+    (printer) => printer.status === "online",
   );
 
   const handlePrinterChange = (event) => {
@@ -85,13 +80,16 @@ export default function PrintPage() {
       return;
     }
 
-    if (
-      file.type !== "application/pdf" &&
-      !file.name.toLowerCase().endsWith(".pdf")
-    ) {
+    const isPDF =
+      file.type === "application/pdf" ||
+      file.name.toLowerCase().endsWith(".pdf");
+
+    const isImage = file.type.startsWith("image/");
+
+    if (!isPDF && !isImage) {
       setSelectedFile(null);
       event.target.value = "";
-      setError("Only PDF files are allowed.");
+      setError("Only PDF and image files are allowed.");
       return;
     }
 
@@ -131,7 +129,7 @@ export default function PrintPage() {
     }
 
     if (!selectedFile) {
-      setError("Please select a PDF file.");
+      setError("Please select a file.");
       return;
     }
 
@@ -144,10 +142,9 @@ export default function PrintPage() {
 
     try {
       setSending(true);
-      setMessage("Uploading PDF...");
+      setMessage("Uploading document...");
 
-      const uploadResponse =
-        await uploadService.uploadDocument(selectedFile);
+      const uploadResponse = await uploadService.uploadDocument(selectedFile);
 
       const uploadedFile = uploadResponse.data;
 
@@ -160,9 +157,7 @@ export default function PrintPage() {
         copies: copyCount,
       });
 
-      setMessage(
-        `Print job created successfully for ${selectedPrinter.name}.`
-      );
+      setMessage(`Print job created successfully for ${selectedPrinter.name}.`);
 
       setSelectedFile(null);
       setCopies("1");
@@ -173,13 +168,13 @@ export default function PrintPage() {
     } catch (error) {
       console.error(
         "Failed to create print job:",
-        error.response?.data || error.message
+        error.response?.data || error.message,
       );
 
       setError(
         error.response?.data?.message ||
           error.message ||
-          "Failed to send PDF to printer."
+          "Failed to send PDF to printer.",
       );
     } finally {
       setSending(false);
@@ -196,7 +191,7 @@ export default function PrintPage() {
             </h1>
 
             <p className="mt-1 text-sm text-slate-500">
-              Select a printer and send your PDF document.
+              Select a printer and send your document.
             </p>
           </div>
 
@@ -296,7 +291,7 @@ export default function PrintPage() {
                 ref={fileInputRef}
                 id="document"
                 type="file"
-                accept="application/pdf,.pdf"
+                accept="application/pdf,.pdf,image/*"
                 onChange={handleFileChange}
                 disabled={sending || loading}
                 className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 file:mr-4 file:rounded-md file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:text-sm file:font-semibold"
