@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Hash": "WDsgivsJfbKxlVbvFb7aj6cbcGWkZWaycMicj4z5wNU=",
+  "Source": "PrintAnywhere.VirtualPrinter",
+  "BasePath": "_content/PrintAnywhere.VirtualPrinter",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}

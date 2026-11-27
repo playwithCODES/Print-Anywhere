@@ -1,0 +1,5 @@
+C:\Users\ompra\OneDrive\Desktop\Mern Stack Projects\Print-Anywhere\print-sender\virtual-printer-bin\appsettings.Development.json
+C:\Users\ompra\OneDrive\Desktop\Mern Stack Projects\Print-Anywhere\print-sender\virtual-printer-bin\appsettings.json
+C:\Users\ompra\OneDrive\Desktop\Mern Stack Projects\Print-Anywhere\print-sender\virtual-printer-bin\PrintAnywhere.VirtualPrinter.pdb
+C:\Users\ompra\OneDrive\Desktop\Mern Stack Projects\Print-Anywhere\print-sender\virtual-printer-bin\aspnetcorev2_inprocess.dll
+C:\Users\ompra\OneDrive\Desktop\Mern Stack Projects\Print-Anywhere\print-sender\virtual-printer-bin\PrintAnywhere.VirtualPrinter.exe

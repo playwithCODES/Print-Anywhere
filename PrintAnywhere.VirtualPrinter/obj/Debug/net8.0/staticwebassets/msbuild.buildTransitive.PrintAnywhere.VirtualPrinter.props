@@ -1,0 +1,3 @@
+﻿<Project>
+  <Import Project="..\buildMultiTargeting\PrintAnywhere.VirtualPrinter.props" />
+</Project>

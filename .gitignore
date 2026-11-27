@@ -4,3 +4,5 @@ out/
 .env
 .env.local
 dist/
+print-sender/dist/
+print-sender/virtual-printer-bin/

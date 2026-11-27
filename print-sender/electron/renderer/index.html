@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Print Anywhere Sender</title>
+  <style>
+    * { box-sizing: border-box; font-family: "Segoe UI", sans-serif; }
+    body { margin: 0; padding: 20px; background: #f5f7fb; color: #1e293b; }
+    .card {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+      margin-bottom: 16px;
+    }
+    h2 { margin: 0 0 6px; font-size: 18px; color: #0f172a; }
+    p.sub { margin: 0 0 16px; font-size: 13px; color: #64748b; }
+    label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #475569; }
+    input, select {
+      width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1;
+      border-radius: 8px; font-size: 14px; margin-bottom: 14px;
+    }
+    button {
+      width: 100%; padding: 10px 14px; border: none; border-radius: 8px;
+      font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    .btn-primary { background: #2563eb; color: #fff; }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-secondary { background: #e2e8f0; color: #1e293b; margin-top: 8px; }
+    .btn-danger { background: #fee2e2; color: #b91c1c; margin-top: 8px; }
+    .badge {
+      display: inline-block; padding: 3px 8px; border-radius: 999px;
+      font-size: 11px; font-weight: 600; background: #dcfce7; color: #166534;
+    }
+    .error { color: #dc2626; font-size: 13px; margin-bottom: 10px; }
+    .logs {
+      max-height: 150px; overflow-y: auto; font-size: 12px;
+      background: #0f172a; color: #e2e8f0; padding: 10px; border-radius: 8px;
+    }
+    .log-line { margin-bottom: 5px; line-height: 1.4; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <!-- LOGIN VIEW -->
+  <div id="loginView" class="card">
+    <h2>Print Anywhere</h2>
+    <p class="sub">Sign in to print from your targeted printer.</p>
+    <div id="loginError" class="error"></div>
+    <form id="loginForm">
+      <label>User ID / Email</label>
+      <input type="email" id="emailInput" placeholder="you@example.com" required />
+      <label>Password</label>
+      <input type="password" id="passwordInput" placeholder="••••••••" required />
+      <button type="submit" class="btn-primary">Sign In</button>
+    </form>
+  </div>
+
+  <!-- ACTIVE SESSION VIEW -->
+  <div id="activeView" class="hidden">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h2 id="userName">Account</h2>
+        <span class="badge">Ctrl + P Active</span>
+      </div>
+      <p id="userEmail" class="sub" style="margin-top:4px;"></p>
+
+      <label>Target Remote Printer</label>
+      <select id="printerSelect"></select>
+
+      <button id="refreshBtn" class="btn-secondary">Refresh Printers</button>
+      <button id="logoutBtn" class="btn-danger">Switch Account / Logout</button>
+    </div>
+
+    <div class="card">
+      <label>Recent Print Routing Activity</label>
+      <div id="logBox" class="logs"></div>
+    </div>
+  </div>
+
+  <script>
+    const loginView = document.getElementById("loginView");
+    const activeView = document.getElementById("activeView");
+    const loginError = document.getElementById("loginError");
+    const printerSelect = document.getElementById("printerSelect");
+    const logBox = document.getElementById("logBox");
+
+    const renderLogs = (logs = []) => {
+      if (!logs.length) {
+        logBox.innerHTML = '<div class="log-line">Waiting for Ctrl + P print jobs...</div>';
+        return;
+      }
+      logBox.innerHTML = logs
+        .map((l) => `<div class="log-line">[${l.time}] ${l.message}</div>`)
+        .join("");
+    };
+
+    const render = async () => {
+      const state = await window.senderAPI.getState();
+      if (!state.loggedIn) {
+        loginView.classList.remove("hidden");
+        activeView.classList.add("hidden");
+        return;
+      }
+
+      loginView.classList.add("hidden");
+      activeView.classList.remove("hidden");
+      document.getElementById("userName").textContent = state.user?.name || "Active User";
+      document.getElementById("userEmail").textContent = state.user?.email || "";
+
+      const physical = (state.printers || []).filter(
+        (p) => p?.printerId && !/print\s*anywhere/i.test(p?.name || "")
+      );
+
+      if (!physical.length) {
+        printerSelect.innerHTML = '<option value="">No remote printer registered on this ID</option>';
+      } else {
+        printerSelect.innerHTML = physical
+          .map(
+            (p) =>
+              `<option value="${p.printerId}" ${
+                p.printerId === state.selectedPrinterId ? "selected" : ""
+              }>${p.name} (${p.status || "unknown"})</option>`
+          )
+          .join("");
+      }
+
+      renderLogs(state.logs);
+    };
+
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      loginError.textContent = "";
+      const email = document.getElementById("emailInput").value.trim();
+      const password = document.getElementById("passwordInput").value;
+
+      const res = await window.senderAPI.login({ email, password });
+      if (!res.success) {
+        loginError.textContent = res.message;
+        return;
+      }
+      await render();
+    });
+
+    printerSelect.addEventListener("change", async (e) => {
+      await window.senderAPI.selectPrinter(e.target.value);
+      await render();
+    });
+
+    document.getElementById("refreshBtn").addEventListener("click", async () => {
+      await window.senderAPI.refreshPrinters();
+      await render();
+    });
+
+    document.getElementById("logoutBtn").addEventListener("click", async () => {
+      await window.senderAPI.logout();
+      await render();
+    });
+
+    window.senderAPI.onLog(() => render());
+    render();
+  </script>
+</body>
+</html>
